@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Temperature Converter (SOAP API)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .converter {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #f44336;
+        }
+        button.secondary:hover {
+            background: #d32f2f;
+        }
+        #result {
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+        }
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            display: block;
+        }
+        .warning {
+            background: #fff8e1;
+            color: #f57f17;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="converter">
+        <h2>Temperature Converter (SOAP API)</h2>
+        <div class="input-group">
+            <label for="celsius">Celsius:</label>
+            <input type="number" id="celsius" placeholder="Enter temperature in Celsius">
+        </div>
+        <div class="input-group">
+            <label for="fahrenheit">Fahrenheit:</label>
+            <input type="number" id="fahrenheit" placeholder="Enter temperature in Fahrenheit">
+        </div>
+        <div class="buttons">
+            <button id="convertBtn">Convert</button>
+            <button id="clearBtn" class="secondary">Clear</button>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const celsiusInput = document.getElementById('celsius');
+            const fahrenheitInput = document.getElementById('fahrenheit');
+            const convertBtn = document.getElementById('convertBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const resultDiv = document.getElementById('result');
+            
+            // CORS Proxy (to bypass CORS issues)
+            const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
+            const SOAP_API_URL = "https://www.w3schools.com/xml/tempconvert.asmx";
+
+            // SOAP Request for Celsius → Fahrenheit
+            async function celsiusToFahrenheit(celsius) {
+                const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
+                <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                    <soap:Body>
+                        <CelsiusToFahrenheit xmlns="https://www.w3schools.com/xml/">
+                            <Celsius>${celsius}</Celsius>
+                        </CelsiusToFahrenheit>
+                    </soap:Body>
+                </soap:Envelope>`;
+
+                try {
+                    const response = await fetch(CORS_PROXY + SOAP_API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "text/xml; charset=utf-8",
+                            "SOAPAction": "https://www.w3schools.com/xml/CelsiusToFahrenheit",
+                        },
+                        body: soapRequest
+                    });
+
+                    if (!response.ok) throw new Error("Failed to fetch SOAP API");
+
+                    const xmlText = await response.text();
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                    const result = xmlDoc.getElementsByTagName("CelsiusToFahrenheitResult")[0]?.textContent;
+
+                    if (!result) throw new Error("Invalid SOAP response format");
+                    return result;
+                } catch (error) {
+                    throw error; // Just rethrow the error (no fallback)
+                }
+            }
+
+            // SOAP Request for Fahrenheit → Celsius
+            async function fahrenheitToCelsius(fahrenheit) {
+                const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
+                <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                    <soap:Body>
+                        <FahrenheitToCelsius xmlns="https://www.w3schools.com/xml/">
+                            <Fahrenheit>${fahrenheit}</Fahrenheit>
+                        </FahrenheitToCelsius>
+                    </soap:Body>
+                </soap:Envelope>`;
+
+                try {
+                    const response = await fetch(CORS_PROXY + SOAP_API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "text/xml; charset=utf-8",
+                            "SOAPAction": "https://www.w3schools.com/xml/FahrenheitToCelsius",
+                        },
+                        body: soapRequest
+                    });
+
+                    if (!response.ok) throw new Error("Failed to fetch SOAP API");
+
+                    const xmlText = await response.text();
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                    const result = xmlDoc.getElementsByTagName("FahrenheitToCelsiusResult")[0]?.textContent;
+
+                    if (!result) throw new Error("Invalid SOAP response format");
+                    return result;
+                } catch (error) {
+                    throw error; // Just rethrow the error (no fallback)
+                }
+            }
+
+            // Conversion handler
+            async function convertTemperature() {
+                resultDiv.className = '';
+                resultDiv.textContent = '';
+                
+                try {
+                    if (celsiusInput.value) {
+                        const result = await celsiusToFahrenheit(celsiusInput.value);
+                        resultDiv.className = 'success';
+                        resultDiv.innerHTML = `${celsiusInput.value}°C = ${result}°F`;
+                        fahrenheitInput.value = result;
+                    } 
+                    else if (fahrenheitInput.value) {
+                        const result = await fahrenheitToCelsius(fahrenheitInput.value);
+                        resultDiv.className = 'success';
+                        resultDiv.innerHTML = `${fahrenheitInput.value}°F = ${result}°C`;
+                        celsiusInput.value = result;
+                    }
+                    else {
+                        resultDiv.className = 'warning';
+                        resultDiv.textContent = 'Please enter a temperature value';
+                    }
+                } catch (error) {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = `API Error: ${error.message}`;
+                }
+            }
+            
+            // Clear fields
+            function clearFields() {
+                celsiusInput.value = '';
+                fahrenheitInput.value = '';
+                resultDiv.className = '';
+                resultDiv.textContent = '';
+            }
+            
+            // Event listeners
+            convertBtn.addEventListener('click', convertTemperature);
+            clearBtn.addEventListener('click', clearFields);
+            
+            // Allow conversion on Enter key
+            celsiusInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') convertTemperature();
+            });
+            
+            fahrenheitInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') convertTemperature();
+            });
+        });
+    </script>
+</body>
+</html>
