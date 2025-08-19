@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Temperature Converter (SOAP API)</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -60,10 +61,10 @@
         button.secondary:hover {
             background: #d32f2f;
         }
-        #result {
-            padding: 15px;
+        .result-container {
+            margin-top: 5px;
+            padding: 10px;
             border-radius: 4px;
-            margin-top: 15px;
             display: none;
         }
         .success {
@@ -81,24 +82,38 @@
             color: #f57f17;
             display: block;
         }
+        .cors-notice {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
     </style>
+
 </head>
 <body>
     <div class="converter">
         <h2>Temperature Converter (SOAP API)</h2>
+        <div class="cors-notice">
+            <strong>Important:</strong> First visit <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank">this link</a> 
+            and click "Request temporary access to the demo server" before using this converter.
+        </div>
         <div class="input-group">
             <label for="celsius">Celsius:</label>
             <input type="number" id="celsius" placeholder="Enter temperature in Celsius">
+            <div id="celsiusResult" class="result-container"></div>
         </div>
         <div class="input-group">
             <label for="fahrenheit">Fahrenheit:</label>
             <input type="number" id="fahrenheit" placeholder="Enter temperature in Fahrenheit">
+            <div id="fahrenheitResult" class="result-container"></div>
         </div>
         <div class="buttons">
             <button id="convertBtn">Convert</button>
             <button id="clearBtn" class="secondary">Clear</button>
         </div>
-        <div id="result"></div>
     </div>
 
     <script>
@@ -107,16 +122,50 @@
             const fahrenheitInput = document.getElementById('fahrenheit');
             const convertBtn = document.getElementById('convertBtn');
             const clearBtn = document.getElementById('clearBtn');
-            const resultDiv = document.getElementById('result');
+            const celsiusResult = document.getElementById('celsiusResult');
+            const fahrenheitResult = document.getElementById('fahrenheitResult');
             
             // CORS Proxy (to bypass CORS issues)
             const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
             const SOAP_API_URL = "https://www.w3schools.com/xml/tempconvert.asmx";
 
-            // SOAP Request for Celsius → Fahrenheit
+            // Common function to make SOAP requests
+            async function makeSOAPRequest(action, body) {
+                try {
+                    const response = await fetch(CORS_PROXY + SOAP_API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "text/xml; charset=utf-8",
+                            "SOAPAction": action,
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        body: body
+                    });
+
+                    if (!response.ok) throw new Error("Failed to fetch SOAP API");
+
+                    const xmlText = await response.text();
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+                    
+                    // Check for SOAP Fault
+                    const fault = xmlDoc.getElementsByTagName("faultstring")[0];
+                    if (fault) {
+                        throw new Error(fault.textContent);
+                    }
+                    
+                    return xmlDoc;
+                } catch (error) {
+                    throw error;
+                }
+            }
+
+            // Celsius to Fahrenheit conversion
             async function celsiusToFahrenheit(celsius) {
                 const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
-                <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                               xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+                               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
                     <soap:Body>
                         <CelsiusToFahrenheit xmlns="https://www.w3schools.com/xml/">
                             <Celsius>${celsius}</Celsius>
@@ -124,36 +173,19 @@
                     </soap:Body>
                 </soap:Envelope>`;
 
-                try {
-                    const response = await fetch(CORS_PROXY + SOAP_API_URL, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "text/xml; charset=utf-8",
-                            "SOAPAction": "https://www.w3schools.com/xml/CelsiusToFahrenheit",
-                        },
-                        body: soapRequest
-                    });
-
-                    if (!response.ok) throw new Error("Failed to fetch SOAP API");
-
-                    const xmlText = await response.text();
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                    const result = xmlDoc.getElementsByTagName("CelsiusToFahrenheitResult")[0]?.textContent;
-
-                    if (!result) throw new Error("Invalid SOAP response format");
-                    return result;
-                } catch (error) {
-                    throw error; // Just rethrow the error (no fallback)
-                }
+                const xmlDoc = await makeSOAPRequest(
+                    "https://www.w3schools.com/xml/CelsiusToFahrenheit", 
+                    soapRequest
+                );
+                return xmlDoc.getElementsByTagName("CelsiusToFahrenheitResult")[0].textContent;
             }
 
-            // SOAP Request for Fahrenheit → Celsius
+            // Fahrenheit to Celsius conversion
             async function fahrenheitToCelsius(fahrenheit) {
                 const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
                 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-                xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
-                xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                               xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+                               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
                     <soap:Body>
                         <FahrenheitToCelsius xmlns="https://www.w3schools.com/xml/">
                             <Fahrenheit>${fahrenheit}</Fahrenheit>
@@ -161,55 +193,42 @@
                     </soap:Body>
                 </soap:Envelope>`;
 
-                try {
-                    const response = await fetch(CORS_PROXY + SOAP_API_URL, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "text/xml; charset=utf-8",
-                            "SOAPAction": "https://www.w3schools.com/xml/FahrenheitToCelsius",
-                        },
-                        body: soapRequest
-                    });
-
-                    if (!response.ok) throw new Error("Failed to fetch SOAP API");
-
-                    const xmlText = await response.text();
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                    const result = xmlDoc.getElementsByTagName("FahrenheitToCelsiusResult")[0]?.textContent;
-
-                    if (!result) throw new Error("Invalid SOAP response format");
-                    return result;
-                } catch (error) {
-                    throw error; // Just rethrow the error (no fallback)
-                }
+                const xmlDoc = await makeSOAPRequest(
+                    "https://www.w3schools.com/xml/FahrenheitToCelsius", 
+                    soapRequest
+                );
+                return xmlDoc.getElementsByTagName("FahrenheitToCelsiusResult")[0].textContent;
             }
 
             // Conversion handler
             async function convertTemperature() {
-                resultDiv.className = '';
-                resultDiv.textContent = '';
+                // Clear previous results
+                celsiusResult.className = 'result-container';
+                celsiusResult.textContent = '';
+                fahrenheitResult.className = 'result-container';
+                fahrenheitResult.textContent = '';
                 
                 try {
                     if (celsiusInput.value) {
                         const result = await celsiusToFahrenheit(celsiusInput.value);
-                        resultDiv.className = 'success';
-                        resultDiv.innerHTML = `${celsiusInput.value}°C = ${result}°F`;
+                        fahrenheitResult.className = 'result-container success';
+                        fahrenheitResult.textContent = `${celsiusInput.value}°C = ${result}°F`;
                         fahrenheitInput.value = result;
                     } 
                     else if (fahrenheitInput.value) {
                         const result = await fahrenheitToCelsius(fahrenheitInput.value);
-                        resultDiv.className = 'success';
-                        resultDiv.innerHTML = `${fahrenheitInput.value}°F = ${result}°C`;
+                        celsiusResult.className = 'result-container success';
+                        celsiusResult.textContent = `${fahrenheitInput.value}°F = ${result}°C`;
                         celsiusInput.value = result;
                     }
                     else {
-                        resultDiv.className = 'warning';
-                        resultDiv.textContent = 'Please enter a temperature value';
+                        celsiusResult.className = 'result-container warning';
+                        celsiusResult.textContent = 'Please enter a temperature value';
                     }
                 } catch (error) {
-                    resultDiv.className = 'error';
-                    resultDiv.textContent = `API Error: ${error.message}`;
+                    celsiusResult.className = 'result-container error';
+                    celsiusResult.textContent = `API Error: ${error.message}. Did you enable CORS access?`;
+                    console.error('Conversion error:', error);
                 }
             }
             
@@ -217,8 +236,10 @@
             function clearFields() {
                 celsiusInput.value = '';
                 fahrenheitInput.value = '';
-                resultDiv.className = '';
-                resultDiv.textContent = '';
+                celsiusResult.className = 'result-container';
+                celsiusResult.textContent = '';
+                fahrenheitResult.className = 'result-container';
+                fahrenheitResult.textContent = '';
             }
             
             // Event listeners
